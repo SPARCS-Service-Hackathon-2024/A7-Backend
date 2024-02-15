@@ -191,7 +191,7 @@ class HouseService:
             save_db(liked_house, self.db)
             status = True
 
-        await self.redis.delete(f"house:{self.user.id}:{house_id}")
+        await self.redis.delete(f"list:{self.user.id}:*")
 
         return {"is_like": status}
 
@@ -286,7 +286,7 @@ class HouseService:
         } for house in houses]
 
     async def cache_recommendation_list(self, page) -> None:
-        redis_key = f"rec:list:{self.user.id}:{page}"
+        redis_key = f"list:{self.user.id}:rec:{page}"
         return_houses = await self.fetch_rec_houses_data(page)
         await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
@@ -296,7 +296,7 @@ class HouseService:
         # backgroud task를 사용하여 다음 페이지의 데이터를 미리 캐싱합니다.
         background_tasks.add_task(self.cache_recommendation_list, page + 1)
 
-        redis_key = f"rec:list:{self.user.id}:{page}"
+        redis_key = f"list:{self.user.id}:rec:{page}"
         cached_data = await self.redis.get(redis_key)
 
         if cached_data:
@@ -311,7 +311,7 @@ class HouseService:
 
         return return_houses
 
-    async def fatch_house_list(self, page: int) -> list:
+    async def fetch_house_list(self, page: int) -> list:
 
         # House 테이블과 Recommendation 테이블을 left join하고,
         # Recommendation 테이블의 house_id가 NULL인 경우만 필터링합니다.
@@ -341,7 +341,7 @@ class HouseService:
         } for house in houses]
 
     async def cache_house_list(self, page: int) -> None:
-        redis_key = f"house:list:{self.user.id}:{page}"
+        redis_key = f"list:{self.user.id}:house:{page}"
         return_houses = await self.fatch_house_list(page)
         await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
@@ -351,7 +351,7 @@ class HouseService:
         background_tasks.add_task(self.cache_house_list, page + 1)
 
         # redis에 저장된 데이터를 가져옵니다.
-        redis_key = f"house:list:{self.user.id}:{page}"
+        redis_key = f"list:{self.user.id}:house:{page}"
         redis_data = await self.redis.get(redis_key)
 
         if redis_data:
