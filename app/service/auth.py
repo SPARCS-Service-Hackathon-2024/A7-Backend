@@ -16,9 +16,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
 
-    def __init__(self, db: Session = Depends(get_db), redis: aioredis.Redis = Depends(get_redis_client)):
+    def __init__(self, db: Session = Depends(get_db)):
         self.db = db
-        self.redis = redis
+
     async def create_token(self, nickname: str):
         # 페이로드 설정
         payload = {
