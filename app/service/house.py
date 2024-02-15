@@ -1,15 +1,12 @@
 import json
-import requests
-
-from fastapi import Depends, HTTPException, status
-from sqlalchemy import select, and_
+import aioredis
+from fastapi import Depends, BackgroundTasks
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
-
-from app.core.config import settings
-from app.db.database import get_db, get_current_user, save_db
+from app.db.database import get_db, get_current_user, save_db, get_redis_client
 from app.db.models import User, House, Recommendation, LikedHouse
 
 
@@ -101,11 +98,12 @@ class HouseRecommender:
 
 
 class HouseService:
-    def __init__(self, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    def __init__(self, db: Session = Depends(get_db), user: User = Depends(get_current_user), redis: aioredis.Redis = Depends(get_redis_client)):
         self.db = db
         self.user = user
+        self.redis = redis
 
-    async def initailize(self):
+    async def initailize(self) -> None:
         with open('app/service/apartment_info.jsonl', 'r') as f:
             data = f.readlines()
             for line in data:
@@ -137,7 +135,7 @@ class HouseService:
                 save_db(house_info, self.db)
 
 
-    async def create(self, house_data):
+    async def create(self, house_data: dict) -> House:
         house = House(
             aptName=house_data['aptName'],
             tradeBuildingTypeCode=house_data['tradeBuildingTypeCode'],
@@ -163,7 +161,7 @@ class HouseService:
 
         return house_data
 
-    async def like(self, house_id):
+    async def like(self, house_id: int) -> None:
 
         # db에서 좋아요를 누른 이력이 있는지 확인합니다.
         like = self.db.query(LikedHouse).filter(
@@ -188,16 +186,28 @@ class HouseService:
             )
             save_db(liked_house, self.db)
 
-    async def recommendation_list(self, page):
+        await self.redis.delete(f"house:{self.user.id}:{house_id}")
 
-        # Recommendation 테이블에서 삭제되지 않은 데이터를 페이지네이션 해서 가져옵니다.
-        # 이 때 house_id를 이용하여 House 테이블에서 데이터를 가져옵니다.
-        houses = self.db.execute(
+    async def detail(self, house_id: int) -> dict:
+
+        house = await self.redis.get(f"house:{self.user.id}:{house_id}")
+        if house:
+            return json.loads(house)
+
+        house = self.db.execute(
             select(
-                Recommendation.house_id,
+                House.id,
                 House.aptName,
-                House.image_url,
                 House.exposureAddress,
+                Recommendation.reason,
+                House.tagList,
+                House.aptHeatMethodTypeName,
+                House.aptHeatFuelTypeName,
+                House.aptHouseholdCount,
+                House.schoolName,
+                House.organizationType,
+                House.walkTime,
+                House.studentCountPerTeacher
             ).join(
                 House,
                 Recommendation.house_id == House.id
@@ -205,27 +215,97 @@ class HouseService:
                 Recommendation.user_id == self.user.id,
                 Recommendation.is_deleted == False,
                 House.is_deleted == False
-            ).limit(5).offset((page - 1) * 5)
-        ).all()
+            )
+        ).first()
 
-        # 사용자가 '좋아요'한 집의 ID를 세트로 생성
+        # 좋아요 한 기록이 있는지 확인
+
+        liked_house = self.db.query(LikedHouse).filter(
+            LikedHouse.user_id == self.user.id,
+            LikedHouse.house_id == house_id
+        ).first()
+
+        is_like = False
+        if liked_house:
+            is_like = True
+
+        house = {
+            "id": house[0],
+            "aptName": house[1],
+            "exposureAddress": house[2],
+            "reason": house[3],
+            "tagList": house[4],
+            "aptHeatMethodTypeName": house[5],
+            "aptHeatFuelTypeName": house[6],
+            "aptHouseholdCount": house[7],
+            "schoolName": house[8],
+            "organizationType": house[9],
+            "walkTime": house[10],
+            "studentCountPerTeacher": house[11],
+            "is_like": is_like
+        }
+
+        await self.redis.set(f"house:{self.user.id}:{house_id}", json.dumps(house, ensure_ascii=False) , ex=3600)
+
+        return house
+
+    async def fetch_rec_houses_data(self, page) -> list:
+        houses_query = select(
+            Recommendation.house_id,
+            House.aptName,
+            House.image_url,
+            House.exposureAddress,
+        ).join(
+            House,
+            Recommendation.house_id == House.id
+        ).filter(
+            Recommendation.user_id == self.user.id,
+            Recommendation.is_deleted == False,
+            House.is_deleted == False
+        ).limit(5).offset((page - 1) * 5)
+        houses = self.db.execute(houses_query).all()
+
         liked_houses_set = {liked_house.house_id for liked_house in self.db.query(LikedHouse).filter(
             LikedHouse.user_id == self.user.id,
             LikedHouse.is_deleted == False
         )}
 
-        # 가져온 집 정보에 '좋아요' 정보를 추가하여 반환
-        return_houses = [{
+        return [{
             "house_id": house[0],
             "aptName": house[1],
             "image_url": house[2],
             "exposureAddress": house[3],
-            "is_like": house[0] in liked_houses_set  # set를 사용하여 빠르게 확인
+            "is_like": house[0] in liked_houses_set
         } for house in houses]
+
+    async def cache_recommendation_list(self, page) -> None:
+        redis_key = f"rec:list:{self.user.id}:{page}"
+        return_houses = await self.fetch_rec_houses_data(page)
+        await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
+
+
+    async def recommendation_list(self, background_tasks: BackgroundTasks,  page: int) -> list:
+
+        # backgroud task를 사용하여 다음 페이지의 데이터를 미리 캐싱합니다.
+        background_tasks.add_task(self.cache_recommendation_list, page + 1)
+
+        redis_key = f"rec:list:{self.user.id}:{page}"
+        cached_data = await self.redis.get(redis_key)
+
+        if cached_data:
+            return json.loads(cached_data)
+
+        return_houses = await self.fetch_rec_houses_data(page)
+
+        # redis에 데이터를 저장합니다.
+        await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
+
+
 
         return return_houses
 
-    async def list(self, page):
+    async def fatch_house_list(self, page: int) -> list:
+
         # House 테이블과 Recommendation 테이블을 left join하고,
         # Recommendation 테이블의 house_id가 NULL인 경우만 필터링합니다.
         houses_query = select(
@@ -233,33 +313,47 @@ class HouseService:
             House.aptName,
             House.image_url,
             House.exposureAddress
-        ).outerjoin(
-            Recommendation, and_(
-                Recommendation.house_id == House.id,
-                Recommendation.user_id == self.user.id,
-                Recommendation.is_deleted == False
-            )
         ).filter(
-            Recommendation.house_id == None,  # Recommendation에 없는 House
             House.is_deleted == False
         ).limit(5).offset((page - 1) * 5)
-
         houses = self.db.execute(houses_query).all()
 
         # 사용자가 '좋아요'한 집 목록을 가져옵니다.
-        liked_houses_query = select(LikedHouse.house_id).filter(
-            LikedHouse.user_id == self.user.id
-        )
-        liked_houses = {house_id for (house_id,) in self.db.execute(liked_houses_query).all()}
+        liked_houses_set = {liked_house.house_id for liked_house in self.db.query(LikedHouse).filter(
+            LikedHouse.user_id == self.user.id,
+            LikedHouse.is_deleted == False
+        )}
 
         # 가져온 집 정보에 '좋아요' 정보를 추가하여 반환합니다.
-        return_houses = [{
+        return [{
             "house_id": house[0],
             "aptName": house[1],
             "image_url": house[2],
             "exposureAddress": house[3],
-            "is_like": house[0] in liked_houses
+            "is_like": house[0] in liked_houses_set
         } for house in houses]
+
+    async def cache_house_list(self, page: int) -> None:
+        redis_key = f"house:list:{self.user.id}:{page}"
+        return_houses = await self.fatch_house_list(page)
+        await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
+
+    async def list(self, background_tasks: BackgroundTasks, page: int) -> list:
+
+        # backgroud task를 사용하여 다음 페이지의 데이터를 미리 캐싱합니다.
+        background_tasks.add_task(self.cache_house_list, page + 1)
+
+        # redis에 저장된 데이터를 가져옵니다.
+        redis_key = f"house:list:{self.user.id}:{page}"
+        redis_data = await self.redis.get(redis_key)
+
+        if redis_data:
+            return json.loads(redis_data)
+
+        return_houses = await self.fatch_house_list(page)
+
+        # redis에 데이터를 저장합니다.
+        await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
         return return_houses
 

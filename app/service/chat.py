@@ -127,4 +127,4 @@ class ChatService:
             )
             save_db(recommendation, self.db)
 
-        return return_data
+        return {"rank": rank_data, "reason": return_data}

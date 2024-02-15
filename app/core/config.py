@@ -1,6 +1,5 @@
 from pydantic import BaseSettings
 
-
 class Settings(BaseSettings):
     SERVER_TYPE: str
     ROOT_PATH: str

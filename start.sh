@@ -1,10 +1,3 @@
-
-# mysql 실행 스크립트
-#
-
-
-#!/bin/bash
-
 # Redis 데이터 플러시
 redis-cli flushall
 
