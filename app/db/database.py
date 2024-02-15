@@ -25,7 +25,7 @@ def get_SessionLocal():
     return SessionLocal
 
 async def get_redis_client() -> aioredis.Redis:
-    redis = aioredis.from_url(f"redis://{settings.DB_URL}:6379/0", encoding="utf-8", decode_responses=True)
+    redis = aioredis.from_url(f"redis://{settings.REDIS_URL}:6379/0", encoding="utf-8", decode_responses=True)
     try:
         yield redis
     finally:
