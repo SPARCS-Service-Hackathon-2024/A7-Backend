@@ -2,6 +2,8 @@ import jwt
 from fastapi import HTTPException, status, Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+
+from app.core.config import settings
 from app.db.models import get_Base, User
 import aioredis
 from fastapi.security import OAuth2PasswordBearer
@@ -9,7 +11,8 @@ from fastapi.security.api_key import APIKeyHeader
 API_KEY_NAME = "Authorization"
 api_key_header_auth = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
-DB_URL = f'mysql+pymysql://root:0000@localhost/sarabwayu'
+
+DB_URL = f'mysql+pymysql://root:0000@{settings.DB_URL}/sarabwayu'
 engine = create_engine(DB_URL, pool_recycle=3600)
 
 Base = get_Base()

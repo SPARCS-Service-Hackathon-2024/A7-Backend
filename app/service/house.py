@@ -81,7 +81,7 @@ class HouseService:
             "identity": "직장인",
             "car": "차 없음",
             "child": "아이 없음",
-            "significant": "유성구에 있는 아파트면 좋겠어"
+            "significant": "주변에 공원이 있었으면 좋겠어"
         }
         recommended_houses = house_recommender.recommend(persona)
 
