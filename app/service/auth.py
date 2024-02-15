@@ -1,7 +1,7 @@
 import aioredis
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.db.database import get_db, get_redis_client, save_db
+from app.db.database import get_db, save_db
 from app.db.models import User
 import jwt
 import datetime
