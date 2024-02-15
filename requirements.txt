@@ -2,3 +2,11 @@ fastapi==0.95.0
 pydantic>=1.8.0,<2.0.0
 uvicorn==0.21.1
 aiofiles>=23.1.0,<=23.1.0
+sqlalchemy==2.0.8
+pymysql==1.0.3
+aioredis==2.0.1
+PyJWT==2.8.0
+passlib==1.7.4
+bcrypt==4.0.1
+scikit-learn==1.4.0
+python-dotenv==1.0.0
