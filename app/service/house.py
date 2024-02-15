@@ -163,6 +163,8 @@ class HouseService:
 
     async def like(self, house_id: int) -> None:
 
+        status = False
+
         # db에서 좋아요를 누른 이력이 있는지 확인합니다.
         like = self.db.query(LikedHouse).filter(
             LikedHouse.user_id == self.user.id,
@@ -173,10 +175,12 @@ class HouseService:
         if like and like.is_deleted == False:
             like.is_deleted = True
             save_db(like, self.db)
+            status = False
 
         elif like and like.is_deleted == True:
             like.is_deleted = False
             save_db(like, self.db)
+            status = True
 
         # 좋아요를 누른 이력이 없다면 새로운 데이터를 생성합니다.
         else:
@@ -185,8 +189,11 @@ class HouseService:
                 house_id=house_id
             )
             save_db(liked_house, self.db)
+            status = True
 
         await self.redis.delete(f"house:{self.user.id}:{house_id}")
+
+        return {"is_like": status}
 
     async def detail(self, house_id: int) -> dict:
 
