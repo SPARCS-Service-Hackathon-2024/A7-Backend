@@ -356,4 +356,3 @@ class HouseService:
         await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
         return return_houses
-
