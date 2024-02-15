@@ -357,7 +357,7 @@ class HouseService:
         if redis_data:
             return json.loads(redis_data)
 
-        return_houses = await self.fatch_house_list(page)
+        return_houses = await self.fetch_house_list(page)
 
         # redis에 데이터를 저장합니다.
         await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
