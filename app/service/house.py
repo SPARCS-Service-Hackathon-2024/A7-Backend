@@ -342,7 +342,7 @@ class HouseService:
 
     async def cache_house_list(self, page: int) -> None:
         redis_key = f"list:{self.user.id}:house:{page}"
-        return_houses = await self.fatch_house_list(page)
+        return_houses = await self.fetch_house_list(page)
         await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
     async def list(self, background_tasks: BackgroundTasks, page: int) -> list:
