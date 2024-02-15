@@ -6,7 +6,7 @@ from app.service.chat import ChatService
 
 router = APIRouter(prefix="/chat")
 
-@router.post("/chat", response_model=ApiResponse, tags=["Chat"])
+@router.post("/", response_model=ApiResponse, tags=["Chat"])
 async def post_chat(
     chat_data: Chat,
     chat_service: Annotated[ChatService, Depends()]

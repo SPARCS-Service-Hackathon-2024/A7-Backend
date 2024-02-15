@@ -22,15 +22,23 @@ async def post_house_create(
 ):
     print(house_data.house_info)
     return ApiResponse()
+@router.patch("/like/{house_id}", response_model=ApiResponse, tags=["House"])
+async def patch_house_like(
+    house_id: int,
+    house_service: Annotated[HouseService, Depends()]
+):
+    return ApiResponse(data=await house_service.like(house_id))
 
-@router.get("/recommendation", response_model=ApiResponse, tags=["House"])
+@router.get("/recommendation/list/{page}", response_model=ApiResponse, tags=["House"])
 async def get_house_recommendation(
+    page: int,
     house_service: Annotated[HouseService, Depends()]
 ):
-    return ApiResponse(data=await house_service.recommendation())
+    return ApiResponse(data=await house_service.recommendation_list(page))
 
-@router.get("/list", response_model=ApiResponse, tags=["House"])
+@router.get("/list/{page}", response_model=ApiResponse, tags=["House"])
 async def get_house_list(
+    page: int,
     house_service: Annotated[HouseService, Depends()]
 ):
-    return ApiResponse(data=await house_service.list())
+    return ApiResponse(data=await house_service.list(page))

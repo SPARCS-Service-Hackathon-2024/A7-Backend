@@ -1,11 +1,17 @@
 from sqlalchemy import Column, Integer, Text, ForeignKey, String, Boolean, DateTime, func, JSON, Date, FLOAT
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
+import pytz
+
+def get_now():
+    return datetime.now(pytz.timezone('Asia/Seoul'))
 
 Base = declarative_base()
 
 class User(Base):
     __tablename__ = 'User'
+
     id = Column(Integer, primary_key=True)
     nickname = Column(String(50), index=True, nullable=False)
     hashed_password = Column(String(100), nullable=False)
@@ -40,14 +46,22 @@ class House(Base):
 
 class Recommendation(Base):
     __tablename__ = 'Recommendation'
+
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('User.id'))
     house_id = Column(Integer, ForeignKey('House.id'))
     reason = Column(Text, nullable=False)
     is_deleted = Column(Boolean, default=False)
-    create_date = Column(DateTime, default=func.now())
+    create_date = Column(DateTime, default=get_now())
 
+class LikedHouse(Base):
+    __tablename__ = 'LikedHouse'
 
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('User.id'))
+    house_id = Column(Integer, ForeignKey('House.id'))
+    is_deleted = Column(Boolean, default=False)
+    create_date = Column(DateTime, default=get_now())
 
 def get_Base():
     return Base

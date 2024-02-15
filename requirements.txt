@@ -13,3 +13,4 @@ python-dotenv==1.0.0
 requests==2.31.0
 urllib3==1.26.6
 cryptography==42.0.2
+pytz==2024.1
