@@ -27,8 +27,7 @@ async def post_house_create(
 async def get_house_recommendation(
     house_service: Annotated[HouseService, Depends()]
 ):
-    await house_service.recommendation()
-    return ApiResponse()
+    return ApiResponse(data=await house_service.recommendation())
 
 @router.get("/list", response_model=ApiResponse, tags=["House"])
 async def get_house_list(

@@ -1,6 +1,7 @@
 import json
+import requests
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.ai import HouseRecommender
@@ -80,10 +81,43 @@ class HouseService:
             "identity": "직장인",
             "car": "차 없음",
             "child": "아이 없음",
-            "significant": "집에서 편안하게 쉬고 싶어요."
+            "significant": "유성구에 있는 아파트면 좋겠어"
         }
         recommended_houses = house_recommender.recommend(persona)
-        print(len(recommended_houses))
-        print(recommended_houses[0])
 
-        ## DB에 저장
+        candidates = []
+        for house in recommended_houses[:3]:
+            house_dict = {}
+            house = house[1]
+            house_dict['aptName'] = house['aptName']
+            house_dict['articleFeatureDescription'] = (house['articleFeatureDescription'] + ' ' + house['detailDescription'])[:100]
+            house_dict['tagList'] = house['tagList']
+            house_dict['walkTime'] = house['walkTime']
+            house_dict['studentCountPerTeacher'] = house['studentCountPerTeacher']
+            house_dict['aptParkingCountPerHousehold'] = house['aptParkingCountPerHousehold']
+            candidates.append(house_dict)
+
+        request_data = {
+            "user_info": json.dumps(persona, ensure_ascii=False),
+            "candidates": json.dumps(candidates, ensure_ascii=False)
+        }
+
+        url = "https://sarabwayu3.hackathon.sparcs.net/"
+
+        response = requests.post(url, json=request_data)
+        rank_section = response.text.split("rank:")[1]
+        reason_section = rank_section.split("reason:")[1]
+        rank_data = rank_section.split("reason:")[0]
+
+        rank_data = rank_data[rank_data.find("["):rank_data.find("]") + 1]
+        reason_section = reason_section[reason_section.find("["):reason_section.find("]") + 1]
+
+        try:
+            return_data = [json.loads(rank_data.replace('\\"', '"')), json.loads(reason_section.replace('\\"', '"'))]
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"{rank_data}, {reason_section}"
+            )
+
+        return return_data

@@ -2,6 +2,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
+
 class HouseRecommender:
     def __init__(self, house_info):
         self.house_info = house_info
