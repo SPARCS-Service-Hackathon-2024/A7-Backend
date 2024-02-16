@@ -201,29 +201,18 @@ class HouseService:
         if house:
             return json.loads(house)
 
-        house = self.db.execute(
-            select(
-                House.id,
-                House.aptName,
-                House.exposureAddress,
-                Recommendation.reason,
-                House.tagList,
-                House.aptHeatMethodTypeName,
-                House.aptHeatFuelTypeName,
-                House.aptHouseholdCount,
-                House.schoolName,
-                House.organizationType,
-                House.walkTime,
-                House.studentCountPerTeacher
-            ).join(
-                House,
-                Recommendation.house_id == House.id
-            ).filter(
-                Recommendation.user_id == self.user.id,
-                Recommendation.is_deleted == False,
-                House.is_deleted == False
-            )
+        house = self.db.query(House).filter(
+            House.id == house_id,
+            House.is_deleted == False
         ).first()
+
+        reason = self.db.query(Recommendation.reason).filter(
+            Recommendation.user_id == self.user.id,
+            Recommendation.house_id == house_id
+        ).first()
+
+        if not house:
+            return None
 
         # 좋아요 한 기록이 있는지 확인
 
@@ -237,18 +226,18 @@ class HouseService:
             is_like = True
 
         house = {
-            "id": house[0],
-            "aptName": house[1],
-            "exposureAddress": house[2],
-            "reason": house[3],
-            "tagList": house[4],
-            "aptHeatMethodTypeName": house[5],
-            "aptHeatFuelTypeName": house[6],
-            "aptHouseholdCount": house[7],
-            "schoolName": house[8],
-            "organizationType": house[9],
-            "walkTime": house[10],
-            "studentCountPerTeacher": house[11],
+            "id": house.id,
+            "aptName": house.aptName,
+            "exposureAddress": house.exposureAddress,
+            "reason": reason.reason if reason else None,
+            "tagList": house.tagList,
+            "aptHeatMethodTypeName": house.aptHeatMethodTypeName,
+            "aptHeatFuelTypeName": house.aptHeatFuelTypeName,
+            "aptHouseholdCount": house.aptHouseholdCount,
+            "schoolName": house.schoolName,
+            "organizationType": house.organizationType,
+            "walkTime": house.walkTime,
+            "studentCountPerTeacher": house.studentCountPerTeacher,
             "is_like": is_like
         }
 
