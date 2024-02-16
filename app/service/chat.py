@@ -1,20 +1,22 @@
 import json
 
+import aioredis
 import requests
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.database import get_db, get_current_user, save_db
+from app.db.database import get_db, get_current_user, save_db, get_redis_client
 from app.db.models import User, House, Recommendation
 from app.schemas.request import Chat
 from app.service.house import HouseRecommender
 
 
 class ChatService:
-    def __init__(self, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    def __init__(self, db: Session = Depends(get_db), user: User = Depends(get_current_user), redis: aioredis.Redis = Depends(get_redis_client)):
         self.db = db
         self.user = user
+        self.redis = redis
 
     async def chat(self, chat_data: Chat):
 
@@ -126,5 +128,7 @@ class ChatService:
                 reason=return_data[rank_data.index(rank)]
             )
             save_db(recommendation, self.db)
+
+        await self.redis.delete(f"list:{self.user.id}:*")
 
         return {"rank": rank_data, "reason": return_data}
