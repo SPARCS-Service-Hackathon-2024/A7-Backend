@@ -287,16 +287,16 @@ class HouseService:
         # backgroud task를 사용하여 다음 페이지의 데이터를 미리 캐싱합니다.
         background_tasks.add_task(self.cache_recommendation_list, page + 1)
 
-        redis_key = f"list:{self.user.id}:rec:{page}"
-        cached_data = await self.redis.get(redis_key)
-
-        if cached_data:
-            return json.loads(cached_data)
+        # redis_key = f"list:{self.user.id}:rec:{page}"
+        # cached_data = await self.redis.get(redis_key)
+        #
+        # if cached_data:
+        #     return json.loads(cached_data)
 
         return_houses = await self.fetch_rec_houses_data(page)
 
         # redis에 데이터를 저장합니다.
-        await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
+        # await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
 
 
@@ -339,18 +339,18 @@ class HouseService:
     async def list(self, background_tasks: BackgroundTasks, page: int) -> list:
 
         # backgroud task를 사용하여 다음 페이지의 데이터를 미리 캐싱합니다.
-        background_tasks.add_task(self.cache_house_list, page + 1)
+        # background_tasks.add_task(self.cache_house_list, page + 1)
 
         # redis에 저장된 데이터를 가져옵니다.
-        redis_key = f"list:{self.user.id}:house:{page}"
-        redis_data = await self.redis.get(redis_key)
+        # redis_key = f"list:{self.user.id}:house:{page}"
+        # redis_data = await self.redis.get(redis_key)
 
-        if redis_data:
-            return json.loads(redis_data)
+        # if redis_data:
+        #     return json.loads(redis_data)
 
         return_houses = await self.fetch_house_list(page)
 
         # redis에 데이터를 저장합니다.
-        await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
+        # await self.redis.set(redis_key, json.dumps(return_houses, ensure_ascii=False), ex=1800)
 
         return return_houses
