@@ -239,7 +239,8 @@ class HouseService:
             "walkTime": house.walkTime,
             "studentCountPerTeacher": house.studentCountPerTeacher,
             "is_like": is_like,
-            "image_url": house.image_url
+            "image_url": house.image_url,
+            "url": house.url
         }
 
         await self.redis.set(f"house:{self.user.id}:{house_id}", json.dumps(house, ensure_ascii=False) , ex=3600)
